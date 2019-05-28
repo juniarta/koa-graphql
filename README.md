@@ -83,10 +83,10 @@ The `graphqlHTTP` function accepts the following options:
     quite useful. You may or may not want it in production.
 
   * **`rootValue`**: A value to pass as the `rootValue` to the `graphql()`
-    function from [`graphql-js/src/execute.js`](https://github.com/graphql/graphql-js/blob/master/src/execution/execute.js#L121).
+    function from [`graphql-js/src/execute.js`](https://github.com/graphql/graphql-js/blob/master/src/execution/execute.js#L122).
 
   * **`context`**: A value to pass as the `context` to the `graphql()`
-    function from [`graphql-js/src/execute.js`](https://github.com/graphql/graphql-js/blob/master/src/execution/execute.js#L122). If `context` is not provided, the
+    function from [`graphql-js/src/execute.js`](https://github.com/graphql/graphql-js/blob/master/src/execution/execute.js#L123). If `context` is not provided, the
     `ctx` object is passed as the context.
 
   * **`pretty`**: If `true`, any JSON response will be pretty-printed.
@@ -100,10 +100,12 @@ The `graphqlHTTP` function accepts the following options:
     `"extensions"` field in the resulting JSON. This is often a useful place to
     add development time metadata such as the runtime of a query or the amount
     of resources consumed. This may be an async function. The function is
-		give one object as an argument: `{ document, variables, operationName, result }`.
+    given one object as an argument: `{ document, variables, operationName, result, context }`.
 
   * **`validationRules`**: Optional additional validation rules queries must
     satisfy in addition to those defined by the GraphQL spec.
+
+  * **`fieldResolver`**
 
 
 ## HTTP Usage
@@ -205,7 +207,7 @@ must return a JSON-serializable Object.
 When called, this is provided an argument which you can use to get information
 about the GraphQL request:
 
-`{ document, variables, operationName, result }`
+`{ document, variables, operationName, result, context }`
 
 This example illustrates adding the amount of time consumed by running the
 provided query, which could perhaps be used by your development tools.
@@ -218,14 +220,18 @@ const app = new Koa();
 app.keys = [ 'some secret hurr' ];
 app.use(session(app));
 
+const extensions = ({ document, variables, operationName, result, context }) => {
+  return {
+    runTime: Date.now() - context.startTime,
+  };
+}
+
 app.use(mount('/graphql', graphqlHTTP(request => {
-  const startTime = Date.now();
   return {
     schema: MyGraphQLSchema,
+    context: { startTime: Date.now() },
     graphiql: true,
-    extensions({ document, variables, operationName, result }) {
-      return { runTime: Date.now() - startTime };
-    }
+    extensions,
   };
 })));
 ```
@@ -278,7 +284,7 @@ stack traces. Providing a function to `formatError` enables this:
 formatError: (error, ctx) => ({
   message: error.message,
   locations: error.locations,
-  stack: error.stack,
+  stack: error.stack ? error.stack.split('\n') : [],
   path: error.path
 })
 ```
